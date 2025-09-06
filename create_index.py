@@ -6,6 +6,14 @@ POST_TEMPLATE = Template(
     "- [$title](https://fetlife.com/users/$user_id/posts/$post_id)\n"
 )
 
+def create_index(posts, mdfile):
+    for post in sorted(posts, key=lambda p: p["title"]):
+        mdfile.write(POST_TEMPLATE.substitute(
+            title=post["title"],
+            user_id=post["user_id"],
+            post_id=post["id"]
+        ))
+
 def main():
     index = {}
     with open("./backup/posts.csv", "r", newline="") as csvfile:
@@ -53,22 +61,21 @@ def main():
 
     for tag, posts in index.items():
         with open(f"output/{tag.lstrip('#')}.md", "w") as mdfile:
-            mdfile.write(f"## {tag}\n")
-            for post in sorted(posts, key=lambda p: p["title"]):
-                mdfile.write(POST_TEMPLATE.substitute(
-                    title=post["title"],
-                    user_id=post["user_id"],
-                    post_id=post["id"]
-                ))
+            create_index(posts, mdfile)
 
     with open(f"output/index.md", "w") as mdfile:
-        mdfile.write("## Index\n\n")
+        mdfile.write("## By Tag\n\n")
         for tag in sorted(index.keys()):
             mdfile.write(POST_TEMPLATE.substitute(
                 title=tag,
                 user_id=post["user_id"],
                 post_id="REPLACE_ME"
             ))
+
+        mdfile.write("\n## Alphabetical\n")
+        all_posts = [post for posts in index.values() for post in posts]
+
+        create_index(sorted(all_posts, key=lambda p: p["title"]), mdfile)
 
 
 if __name__ == "__main__":
