@@ -1,22 +1,39 @@
-import csv
 from string import Template
+import csv
 import os
+import re
+import sys
+
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+
 
 POST_TEMPLATE = Template(
     "- [$title](https://fetlife.com/users/$user_id/posts/$post_id)\n"
 )
 
 def create_index(posts, mdfile):
-    for post in sorted(posts, key=lambda p: p["title"]):
+    for post in sorted(posts, key=lambda p: natural_keys(p["title"])):
         mdfile.write(POST_TEMPLATE.substitute(
             title=post["title"],
             user_id=post["user_id"],
             post_id=post["id"]
         ))
+        mdfile.write("\n")
 
-def main():
+def main(posts_file):
+
     index = {}
-    with open("./backup/posts.csv", "r", newline="") as csvfile:
+    with open(posts_file, "r", newline="") as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             if any([
@@ -33,7 +50,7 @@ def main():
                 if line.startswith("tags:"):
                     tags = [
                         tag.strip()
-                        for tag in line.strip("tags:").split(",")
+                        for tag in line.lstrip("tags:").split(",")
                         if tag.strip().startswith("#")
                     ]
                     break
@@ -59,24 +76,12 @@ def main():
 
             index[category].append(post)
 
-    for tag, posts in index.items():
-        with open(f"output/{tag.lstrip('#')}.md", "w") as mdfile:
-            create_index(posts, mdfile)
-
-    with open(f"output/index.md", "w") as mdfile:
-        mdfile.write("## By Tag\n\n")
-        for tag in sorted(index.keys()):
-            mdfile.write(POST_TEMPLATE.substitute(
-                title=tag,
-                user_id=post["user_id"],
-                post_id="REPLACE_ME"
-            ))
-
-        mdfile.write("\n## Alphabetical\n")
-        all_posts = [post for posts in index.values() for post in posts]
-
-        create_index(sorted(all_posts, key=lambda p: p["title"]), mdfile)
+    with open("index.md", "w") as mdfile:
+        for tag in sorted(index.keys(), key=natural_keys):
+            mdfile.write(f"# {tag}\n")
+            create_index(index[tag], mdfile)
 
 
 if __name__ == "__main__":
-    main()
+    posts_file = sys.argv[1]
+    main(posts_file)
